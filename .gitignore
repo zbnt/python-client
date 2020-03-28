@@ -1,0 +1,6 @@
+.directory
+*.kdev4
+*.csv
+__pycache__/
+*.egg-info/
+dist/
