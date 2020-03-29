@@ -39,6 +39,8 @@ class ZbntClient(MessageReceiver):
 		self.disconnecting = False
 		self.devices = dict()
 
+		self.pending_msg = None
+
 	@staticmethod
 	async def connect(addr, port, timeout=5):
 		loop = asyncio.get_running_loop()
@@ -67,33 +69,65 @@ class ZbntClient(MessageReceiver):
 		self.transport.write(encode_u16(len(payload)))
 		self.transport.write(payload)
 
+	async def start_run(self):
+		if not self.connected:
+			raise Exception("Not connected to server")
+
+		self.pending_msg = Messages.MSG_ID_RUN_START
+		self.pending_msg_future = asyncio.get_running_loop().create_future()
+
+		self.send_message(Messages.MSG_ID_RUN_START, b"")
+		await self.pending_msg_future
+
+	async def stop_run(self):
+		if not self.connected:
+			raise Exception("Not connected to server")
+
+		self.pending_msg = Messages.MSG_ID_RUN_STOP
+		self.pending_msg_future = asyncio.get_running_loop().create_future()
+
+		self.send_message(Messages.MSG_ID_RUN_STOP, b"")
+		await self.pending_msg_future
+
+	async def load_bitstream(self, name):
+		if not self.connected:
+			raise Exception("Not connected to server")
+
+		self.pending_msg = Messages.MSG_ID_PROGRAM_PL
+		self.pending_msg_future = asyncio.get_running_loop().create_future()
+
+		self.send_message(Messages.MSG_ID_PROGRAM_PL, encode_u16(len(name)) + encode_str(name))
+		return await self.pending_msg_future
+
 	async def set_raw_property(self, dev_id, prop_id, value):
 		if not self.connected:
 			raise Exception("Not connected to server")
 
-		self.pending_prop = (dev_id, prop_id)
-		self.pending_prop_future = asyncio.get_running_loop().create_future()
+		self.pending_msg = Messages.MSG_ID_SET_PROPERTY
+		self.pending_msg_params = (dev_id, prop_id)
+		self.pending_msg_future = asyncio.get_running_loop().create_future()
 
 		payload = encode_u8(dev_id)
 		payload += encode_u16(prop_id)
 		payload += value
-		self.send_message(Messages.MSG_ID_SET_PROPERTY, payload)
 
-		return await self.pending_prop_future
+		self.send_message(Messages.MSG_ID_SET_PROPERTY, payload)
+		return await self.pending_msg_future
 
 	async def get_raw_property(self, dev_id, prop_id, params=b""):
 		if not self.connected:
 			raise Exception("Not connected to server")
 
-		self.pending_prop = (dev_id, prop_id)
-		self.pending_prop_future = asyncio.get_running_loop().create_future()
+		self.pending_msg = Messages.MSG_ID_GET_PROPERTY
+		self.pending_msg_params = (dev_id, prop_id)
+		self.pending_msg_future = asyncio.get_running_loop().create_future()
 
 		payload = encode_u8(dev_id)
 		payload += encode_u16(prop_id)
 		payload += params
-		self.send_message(Messages.MSG_ID_GET_PROPERTY, payload)
 
-		return await self.pending_prop_future
+		self.send_message(Messages.MSG_ID_GET_PROPERTY, payload)
+		return await self.pending_msg_future
 
 	def connection_made(self, transport):
 		super().connection_made(transport)
@@ -200,6 +234,18 @@ class ZbntClient(MessageReceiver):
 
 				self.devices[dev_id] = self.create_device(dev_id, dev_type, props_list)
 				i += 4 + props_size
+
+			if self.pending_msg == msg_id:
+				self.pending_msg_future.set_result(success)
+				self.pending_msg = None
+				self.pending_msg_params = None
+				self.pending_msg_future = None
+		elif msg_id == Messages.MSG_ID_RUN_START or msg_id == Messages.MSG_ID_RUN_STOP:
+			if self.pending_msg == msg_id:
+				self.pending_msg_future.set_result(True)
+				self.pending_msg = None
+				self.pending_msg_params = None
+				self.pending_msg_future = None
 		elif msg_id == Messages.MSG_ID_SET_PROPERTY or msg_id == Messages.MSG_ID_GET_PROPERTY:
 			if len(msg_payload) < 4:
 				return
@@ -209,14 +255,15 @@ class ZbntClient(MessageReceiver):
 			success = bool(msg_payload[3])
 			value = msg_payload[4:]
 
-			if self.pending_prop != None and self.pending_prop == (dev_id, prop_id):
+			if self.pending_msg == msg_id and self.pending_msg_params == (dev_id, prop_id):
 				if msg_id == Messages.MSG_ID_GET_PROPERTY:
-					self.pending_prop_future.set_result( (success, value) )
+					self.pending_msg_future.set_result( (success, value) )
 				else:
-					self.pending_prop_future.set_result(success)
+					self.pending_msg_future.set_result(success)
 
-				self.pending_prop = None
-				self.pending_prop_future = None
+				self.pending_msg = None
+				self.pending_msg_params = None
+				self.pending_msg_future = None
 		elif msg_id & Messages.MSG_ID_MEASUREMENT:
 			dev_id = msg_id & ~Messages.MSG_ID_MEASUREMENT
 			dev_obj = self.devices.get(dev_id, None)
