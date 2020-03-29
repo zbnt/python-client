@@ -44,9 +44,6 @@ class LatencyMeasurer(AxiDevice):
 	}
 
 	def __init__(self, parent, dev_id, initial_props):
-		print(self._property_encoding)
-		print(LatencyMeasurer._property_encoding)
-
 		super().__init__(parent, dev_id, initial_props)
 
 	def receive_measurement(self, data):
