@@ -21,16 +21,43 @@ import asyncio
 import netifaces
 import ipaddress
 
+from .Encoding import *
 from .MessageReceiver import *
 
 class DiscoveryClient(MessageReceiver):
 	MSG_DISCOVERY_PORT = 5466
 
 	def __init__(self, address_list, on_device_discovered):
-		super().__init__(self.send_broadcast, self.message_received, None)
+		super().__init__()
 
 		self.address_list = address_list
 		self.on_device_discovered = on_device_discovered
+
+	@staticmethod
+	async def create(addr, callback):
+		loop = asyncio.get_running_loop()
+
+		_, protocol = await loop.create_datagram_endpoint(
+			lambda: DiscoveryClient(addr, callback),
+			remote_addr=None,
+			family=socket.AF_INET,
+			allow_broadcast=True
+		)
+
+		return protocol
+
+	def connection_made(self, transport):
+		super().connection_made(transport)
+
+		self.validator = random.randint(0, 2**64 - 1)
+
+		message = MessageReceiver.MSG_MAGIC_IDENTIFIER
+		message += encode_u16(Messages.MSG_ID_DISCOVERY)
+		message += encode_u16(8)
+		message += encode_u64(self.validator)
+
+		for address in self.address_list:
+			self.transport.sendto(message, (address, DiscoveryClient.MSG_DISCOVERY_PORT))
 
 	def datagram_received(self, data, addr):
 		self.remote_addr = addr
@@ -39,22 +66,17 @@ class DiscoveryClient(MessageReceiver):
 		self.status = MsgRxStatus.MSG_RX_MAGIC
 		self.buffer = b"\x00\x00\x00\x00"
 
-	def send_broadcast(self):
-		self.validator = random.randint(0, 2**64 - 1)
+	def error_received(self, err):
+		pass
 
-		message = MessageReceiver.MSG_MAGIC_IDENTIFIER
-		message += Messages.MSG_ID_DISCOVERY.to_bytes(2, byteorder="little")
-		message += b"\x08\x00"
-		message += self.validator.to_bytes(8, byteorder="little")
-
-		for address in self.address_list:
-			self.transport.sendto(message, (address, DiscoveryClient.MSG_DISCOVERY_PORT))
+	def connection_lost(self, exc):
+		pass
 
 	def message_received(self, msg_id, msg_payload):
 		if msg_id != Messages.MSG_ID_DISCOVERY or len(msg_payload) <= 67:
 			return
 
-		validator = int.from_bytes(msg_payload[0:8], byteorder='little', signed=False)
+		validator = decode_u64(msg_payload[0:8])
 
 		if validator != self.validator:
 			return
@@ -64,7 +86,7 @@ class DiscoveryClient(MessageReceiver):
 		device["version"] = (
 			msg_payload[11],
 			msg_payload[10],
-			int.from_bytes(msg_payload[8:10], byteorder='little', signed=False),
+			decode_u16(msg_payload[8:10]),
 			msg_payload[12:28].strip(b"\x00").decode("UTF-8"),
 			msg_payload[28:44].strip(b"\x00").decode("UTF-8"),
 			"d" if msg_payload[44] else ""
@@ -101,23 +123,10 @@ class DiscoveryClient(MessageReceiver):
 			return
 
 		device["address"] = address_list
-		device["port"] = int.from_bytes(msg_payload[65:67], byteorder='little', signed=False)
+		device["port"] = decode_u16(msg_payload[65:67])
 		device["name"] = msg_payload[67:].decode("UTF-8")
 
 		self.on_device_discovered(device)
-
-	@staticmethod
-	async def create(addr, callback):
-		loop = asyncio.get_running_loop()
-
-		_, protocol = await loop.create_datagram_endpoint(
-			lambda: DiscoveryClient(addr, callback),
-			remote_addr=None,
-			family=socket.AF_INET,
-			allow_broadcast=True
-		)
-
-		return protocol
 
 async def discover_devices(timeout):
 	address_list = []

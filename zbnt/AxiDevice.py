@@ -19,9 +19,14 @@
 from .Enums import *
 
 class AxiDevice:
-	def __init__(self, dev_id, initial_props):
+	_property_encoding = dict()
+
+	def __init__(self, parent, dev_id, initial_props):
 		self.id = dev_id
 		self.ports = []
+		self.client = parent
+		self.measurement_handler = None
+		self.valid_properties = list(self._property_encoding)
 
 		for prop_id, prop_bytes in initial_props:
 			if prop_id == Properties.PROP_PORTS:
@@ -31,4 +36,36 @@ class AxiDevice:
 		return "zbnt.{0}(dev_id={1}, ports={2})".format(self.__class__.__name__, self.id, str(self.ports))
 
 	def receive_measurement(self, data):
-		pass
+		if self.measurement_handler != None:
+			self.measurement_handler(self.id, data)
+
+	async def set_property(self, prop_id, value):
+		prop_encoding = self._property_encoding.get(prop_id, None)
+
+		if prop_encoding == None:
+			raise Exception("Property {0} is invalid for {1}".format(prop_id, self.__class__.__name__))
+
+		encoder, _ = prop_encoding
+
+		if encoder == None:
+			raise Exception("Property " + str(prop_id) + " is read-only")
+
+		return await self.client.set_raw_property(self.id, prop_id, encoder(value))
+
+	async def get_property(self, prop_id):
+		prop_encoding = self._property_encoding.get(prop_id, None)
+
+		if prop_encoding == None:
+			raise Exception("Property {0} is invalid for {1}".format(prop_id, self.__class__.__name__))
+
+		_, decoder = prop_encoding
+
+		if decoder == None:
+			raise Exception("Property " + str(prop_id) + " is write-only")
+
+		success, value = await self.client.get_raw_property(self.id, prop_id)
+
+		if not success:
+			return (False, None)
+
+		return (success, decoder(value))
