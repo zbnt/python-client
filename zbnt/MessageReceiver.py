@@ -16,13 +16,12 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import socket
 import asyncio
-import netifaces
 
 from enum import Enum, auto
 
 from .Enums import *
+from .Encoding import *
 
 class MsgRxStatus(Enum):
 	MSG_RX_MAGIC = auto()
@@ -33,14 +32,7 @@ class MsgRxStatus(Enum):
 class MessageReceiver(asyncio.Protocol):
 	MSG_MAGIC_IDENTIFIER = b"\xFFZB\x02"
 
-	def __init__(self, on_connection_made, on_message, on_error):
-		loop = asyncio.get_running_loop()
-
-		self.on_connection_lost = loop.create_future()
-		self.on_connection_made = on_connection_made
-		self.on_message = on_message
-		self.on_error = on_error
-
+	def __init__(self):
 		self.status = MsgRxStatus.MSG_RX_MAGIC
 		self.buffer = b"\x00\x00\x00\x00"
 		self.count = 0
@@ -49,9 +41,6 @@ class MessageReceiver(asyncio.Protocol):
 
 	def connection_made(self, transport):
 		self.transport = transport
-
-		if self.on_connection_made != None:
-			self.on_connection_made()
 
 	def bytes_received(self, data):
 		for b in data:
@@ -69,17 +58,15 @@ class MessageReceiver(asyncio.Protocol):
 				self.buffer += b
 
 				if len(self.buffer) == 4:
-					self.id = int.from_bytes(self.buffer[0:2], byteorder='little', signed=False)
-					self.size = int.from_bytes(self.buffer[2:4], byteorder='little', signed=False)
+					self.id = decode_u16(self.buffer[0:2])
+					self.size = decode_u16(self.buffer[2:4])
 					self.buffer = b""
 
 					if self.id == Messages.MSG_ID_EXTENDED:
 						self.status = MsgRxStatus.MSG_RX_EXTENDED_HEADER
 						self.id = self.size
 					elif self.size == 0:
-						if self.on_message != None:
-							self.on_message(self.id, self.buffer)
-
+						self.message_received(self.id, self.buffer)
 						self.status = MsgRxStatus.MSG_RX_MAGIC
 						self.buffer = b"\x00\x00\x00\x00"
 					else:
@@ -94,30 +81,29 @@ class MessageReceiver(asyncio.Protocol):
 				self.buffer += b
 
 				if len(self.buffer) == 4:
-					self.size = int.from_bytes(self.buffer, byteorder='little', signed=False)
+					self.size = decode_u32(self.buffer)
 					self.buffer = b""
 
 					if self.size == 0:
 						self.status = MsgRxStatus.MSG_RX_DATA
 					else:
-						if self.on_message != None:
-							self.on_message(self.id, self.buffer)
-
+						self.message_received(self.id, self.buffer)
 						self.status = MsgRxStatus.MSG_RX_MAGIC
 						self.buffer = b"\x00\x00\x00\x00"
 			else:
 				self.buffer += b
 
 				if len(self.buffer) == self.size:
-					if self.on_message != None:
-						self.on_message(self.id, self.buffer)
-
+					self.message_received(self.id, self.buffer)
 					self.status = MsgRxStatus.MSG_RX_MAGIC
 					self.buffer = b"\x00\x00\x00\x00"
 
-	def error_received(self, exc):
-		if self.on_error != None:
-			self.on_error(exc)
+	def message_received(self, msg_id, msg_payload):
+		pass
+
+	def error_received(self, err):
+		raise ConnectionError(err)
 
 	def connection_lost(self, exc):
-		self.on_connection_lost.set_result(True)
+		if exc != None:
+			raise ConnectionError(exc)

@@ -20,12 +20,9 @@ from .Enums import *
 from .AxiDevice import *
 
 class AxiMdio(AxiDevice):
-	def __init__(self, dev_id, initial_props):
-		super().__init__(dev_id, initial_props)
+	def __init__(self, parent, dev_id, initial_props):
+		super().__init__(parent, dev_id, initial_props)
 
 		for prop_id, prop_bytes in initial_props:
 			if prop_id == Properties.PROP_PHY_ADDR:
 				self.phys = list(prop_bytes)
-
-	def receive_measurement(self, data):
-		pass

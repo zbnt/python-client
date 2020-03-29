@@ -20,6 +20,7 @@ from .Enums import *
 
 class AxiDevice:
 	_property_encoding = dict()
+	_property_params = dict()
 
 	def __init__(self, parent, dev_id, initial_props):
 		self.id = dev_id
@@ -39,33 +40,55 @@ class AxiDevice:
 		if self.measurement_handler != None:
 			self.measurement_handler(self.id, data)
 
-	async def set_property(self, prop_id, value):
+	async def set_property(self, prop_id, value, params=dict()):
 		prop_encoding = self._property_encoding.get(prop_id, None)
+		_, prop_params = self._property_params.get(prop_id, (0, []))
+		value_bytes = b""
 
 		if prop_encoding == None:
-			raise Exception("Property {0} is invalid for {1}".format(prop_id, self.__class__.__name__))
+			raise ValueError("Property {0} is invalid for {1}".format(prop_id, self.__class__.__name__))
 
 		encoder, _ = prop_encoding
 
 		if encoder == None:
-			raise Exception("Property " + str(prop_id) + " is read-only")
+			raise ValueError("Property {0} is read-only".format(prop_id))
 
-		return await self.client.set_raw_property(self.id, prop_id, encoder(value))
+		for param_name, param_encoder in prop_params:
+			param_value = params.get(param_name, None)
 
-	async def get_property(self, prop_id):
+			if param_value == None:
+				raise ValueError("Missing parameter: {0}".format(param_name))
+
+			value_bytes += param_encoder(param_value)
+
+		value_bytes += encoder(value)
+
+		return await self.client.set_raw_property(self.id, prop_id, value_bytes)
+
+	async def get_property(self, prop_id, params=dict()):
 		prop_encoding = self._property_encoding.get(prop_id, None)
+		params_size, prop_params = self._property_params.get(prop_id, (0, []))
+		param_bytes = b""
 
 		if prop_encoding == None:
-			raise Exception("Property {0} is invalid for {1}".format(prop_id, self.__class__.__name__))
+			raise ValueError("Property {0} is invalid for {1}".format(prop_id, self.__class__.__name__))
 
 		_, decoder = prop_encoding
 
 		if decoder == None:
-			raise Exception("Property " + str(prop_id) + " is write-only")
+			raise ValueError("Property {0} is write-only".format(prop_id))
 
-		success, value = await self.client.get_raw_property(self.id, prop_id)
+		for param_name, param_encoder in prop_params:
+			param_value = params.get(param_name, None)
+
+			if param_value == None:
+				raise ValueError("Missing parameter: {0}".format(param_name))
+
+			param_bytes += param_encoder(param_value)
+
+		success, value = await self.client.get_raw_property(self.id, prop_id, param_bytes)
 
 		if not success:
 			return (False, None)
 
-		return (success, decoder(value))
+		return (success, decoder(value[params_size:]))

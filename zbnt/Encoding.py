@@ -45,6 +45,15 @@ def encode_s32(value):
 def encode_s64(value):
 	return value.to_bytes(8, byteorder="little", signed=True)
 
+def encode_str(value):
+	return value.encode("UTF-8")
+
+def encode_mac(value):
+	return bytes.fromhex(value.replace(":", "").replace(" ", ""))
+
+def encode_ip4(value):
+	return b"".join(map(lambda x: encode_u8(int(x)), value.split(".")[::-1]))
+
 # decode_x : bytes to number
 
 def decode_bool(value):
@@ -73,3 +82,13 @@ def decode_s32(value):
 
 def decode_s64(value):
 	return int.from_bytes(value[:8], byteorder="little", signed=True)
+
+def decode_str(value):
+	return value.encode("UTF-8")
+
+def decode_mac(value):
+	hex_mac = value.hex().upper()
+	return ":".join([hex_mac[i:i+1] for i in range(0, len(hex_mac), 2)])
+
+def decode_ip4(value):
+	return "{0}.{1}.{2}.{3}".format(value[3], value[2], value[1], value[0])

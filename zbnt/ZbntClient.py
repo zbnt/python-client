@@ -81,7 +81,7 @@ class ZbntClient(MessageReceiver):
 
 		return await self.pending_prop_future
 
-	async def get_raw_property(self, dev_id, prop_id):
+	async def get_raw_property(self, dev_id, prop_id, params=b""):
 		if not self.connected:
 			raise Exception("Not connected to server")
 
@@ -90,6 +90,7 @@ class ZbntClient(MessageReceiver):
 
 		payload = encode_u8(dev_id)
 		payload += encode_u16(prop_id)
+		payload += params
 		self.send_message(Messages.MSG_ID_GET_PROPERTY, payload)
 
 		return await self.pending_prop_future
