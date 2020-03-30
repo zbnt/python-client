@@ -32,7 +32,7 @@ class TrafficGenerator(AxiDevice):
 		Properties.PROP_BURST_TIME_OFF: (encode_u16, decode_u16),
 		Properties.PROP_LFSR_SEED: (encode_u8, decode_u8),
 		Properties.PROP_FRAME_TEMPLATE: (lambda x: x, lambda x: x),
-		Properties.PROP_FRAME_PATTERN: (lambda x: x, lambda x: x)
+		Properties.PROP_FRAME_TEMPLATE_MASK: (lambda x: x, lambda x: x)
 	}
 
 	def __init__(self, parent, dev_id, initial_props):
