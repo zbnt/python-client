@@ -28,20 +28,21 @@ from .MessageReceiver import *
 class DiscoveryClient(MessageReceiver):
 	MSG_DISCOVERY_PORT = 5466
 
-	def __init__(self, address_list, on_device_discovered):
+	def __init__(self, address_list, ip6, on_device_discovered):
 		super().__init__()
 
+		self.ip6 = ip6
 		self.address_list = address_list
 		self.on_device_discovered = on_device_discovered
 
 	@staticmethod
-	async def create(addr, callback):
+	async def create(addr, ip6, callback):
 		loop = asyncio.get_running_loop()
 
 		_, protocol = await loop.create_datagram_endpoint(
-			lambda: DiscoveryClient(addr, callback),
+			lambda: DiscoveryClient(addr, ip6, callback),
 			remote_addr=None,
-			family=socket.AF_INET,
+			family=socket.AF_INET6 if ip6 else socket.AF_INET,
 			allow_broadcast=True
 		)
 
@@ -58,7 +59,10 @@ class DiscoveryClient(MessageReceiver):
 		message += encode_u64(self.validator)
 
 		for address in self.address_list:
-			self.transport.sendto(message, (address, DiscoveryClient.MSG_DISCOVERY_PORT))
+			if not self.ip6:
+				self.transport.sendto(message, (address, DiscoveryClient.MSG_DISCOVERY_PORT))
+			else:
+				self.transport.sendto(message, address)
 
 	def datagram_received(self, data, addr):
 		self.remote_addr = addr
@@ -74,7 +78,7 @@ class DiscoveryClient(MessageReceiver):
 		pass
 
 	def message_received(self, msg_id, msg_payload):
-		if msg_id != Messages.MSG_ID_DISCOVERY or len(msg_payload) <= 67:
+		if msg_id != Messages.MSG_ID_DISCOVERY or len(msg_payload) <= 47:
 			return
 
 		validator = decode_u64(msg_payload[0:8])
@@ -106,45 +110,50 @@ class DiscoveryClient(MessageReceiver):
 		elif len(device["version"][5]) != 0:
 			device["versionstr"] += "+d"
 
-		msg_ip, _ = self.remote_addr
-		ip4 = str(ipaddress.IPv4Address(msg_payload[48:44:-1]))
-		ip6 = str(ipaddress.IPv6Address(msg_payload[49:65]))
-		address_list = []
+		if not self.ip6:
+			ip, _ = self.remote_addr
+		else:
+			ip, _ = socket.getnameinfo(self.remote_addr, 0)
 
-		if ip4 != msg_ip:
-			return
-
-		if ip4 != "0.0.0.0":
-			address_list.append(ip4)
-
-		if ip6 != "::":
-			address_list.append(ip6)
-
-		if len(address_list) == 0:
-			return
-
-		device["address"] = address_list
-		device["port"] = decode_u16(msg_payload[65:67])
-		device["name"] = msg_payload[67:].decode("UTF-8")
+		device["address"] = ip
+		device["port"] = decode_u16(msg_payload[45:47])
+		device["name"] = msg_payload[47:].decode("UTF-8")
 
 		self.on_device_discovered(device)
 
 async def discover_devices(timeout):
-	address_list = []
 	device_list = []
+	address4_set = set()
+	address6_list = []
 
 	# Get broadcast address of every available interface
+
 	for iface in netifaces.interfaces():
 		for addr_family, addr_list in netifaces.ifaddresses(iface).items():
 			if netifaces.address_families[addr_family] == "AF_INET":
 				for addr in addr_list:
 					if "broadcast" in addr:
-						address_list.append(addr["broadcast"])
+						address4_set.add(addr["broadcast"])
+					elif addr["addr"][:8] == "169.254.":
+						address4_set.add("169.254.255.255")
+
+		address6_list.append(
+			socket.getaddrinfo(
+				"ff12::{0}%{1}".format(DiscoveryClient.MSG_DISCOVERY_PORT, iface),
+				5466, socket.AF_INET6, socket.SOCK_DGRAM
+			)[0][-1]
+		)
 
 	# Broadcast DISCOVERY message on every interface
+
 	await DiscoveryClient.create(
-		address_list,
-		lambda dev:	device_list.append(dev)
+		address4_set, False,
+		lambda dev: device_list.append(dev)
+	)
+
+	await DiscoveryClient.create(
+		address6_list, True,
+		lambda dev: device_list.append(dev)
 	)
 
 	await asyncio.sleep(timeout)
