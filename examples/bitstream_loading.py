@@ -28,10 +28,12 @@ async def main():
 		exit(1)
 
 	if len(devices) > 1:
-		for i in range(len(devices)):
-			print("{0}) {1} ({2})".format(i + 1, devices[i]["name"], ", ".join(devices[i]["address"])))
+		print("Available devices:\n")
 
-		req_dev = int(input("Select a device [1-{0}]: ".format(len(devices)))) - 1
+		for i in range(len(devices)):
+			print("{0}) {1} ({2})".format(i + 1, devices[i]["name"], devices[i]["address"]))
+
+		req_dev = int(input("\nSelect a device [1-{0}]: ".format(len(devices)))) - 1
 
 		if req_dev < 0 or req_dev >= len(devices):
 			print("Error: Invalid device selected")
@@ -41,9 +43,9 @@ async def main():
 
 	req_dev = devices[req_dev]
 
-	print("- Connecting to {0} ({1})".format(req_dev["name"], req_dev["address"][0]))
+	print("\n- Connecting to {0} ({1})".format(req_dev["name"], req_dev["address"]))
 
-	client = await ZbntClient.connect(req_dev["address"][1], req_dev["port"])
+	client = await ZbntClient.connect(req_dev["address"], req_dev["port"])
 
 	if client == None:
 		print("Error: Failed to connect to device")

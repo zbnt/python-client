@@ -25,7 +25,7 @@ async def main():
 
 	for d in devices:
 		print(d["name"])
-		print("    - Address:", ", ".join(d["address"]))
+		print("    - Address:", d["address"])
 		print("    - Version:", d["versionstr"])
 		print("    - Port:", str(d["port"]))
 		print("")
