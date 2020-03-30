@@ -21,6 +21,8 @@ from .Encoding import *
 from .AxiDevice import *
 
 class TrafficGenerator(AxiDevice):
+	device_type = Devices.DEV_TRAFFIC_GENERATOR
+
 	_property_encoding = {
 		Properties.PROP_ENABLE: (encode_bool, decode_bool),
 		Properties.PROP_ENABLE_BURST: (encode_bool, decode_bool),

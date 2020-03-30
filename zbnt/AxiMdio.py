@@ -20,6 +20,8 @@ from .Enums import *
 from .AxiDevice import *
 
 class AxiMdio(AxiDevice):
+	device_type = Devices.DEV_AXI_MDIO
+
 	def __init__(self, parent, dev_id, initial_props):
 		super().__init__(parent, dev_id, initial_props)
 

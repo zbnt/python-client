@@ -21,6 +21,8 @@ from .Encoding import *
 from .AxiDevice import *
 
 class StatsCollector(AxiDevice):
+	device_type = Devices.DEV_STATS_COLLECTOR
+
 	_property_encoding = {
 		Properties.PROP_ENABLE: (encode_bool, decode_bool),
 		Properties.PROP_ENABLE_LOG: (encode_bool, decode_bool),

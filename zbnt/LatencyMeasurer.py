@@ -21,6 +21,8 @@ from .Encoding import *
 from .AxiDevice import *
 
 class LatencyMeasurer(AxiDevice):
+	device_type = Devices.DEV_LATENCY_MEASURER
+
 	_property_encoding = {
 		Properties.PROP_ENABLE: (encode_bool, decode_bool),
 		Properties.PROP_ENABLE_LOG: (encode_bool, decode_bool),

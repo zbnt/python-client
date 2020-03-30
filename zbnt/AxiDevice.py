@@ -19,6 +19,7 @@
 from .Enums import *
 
 class AxiDevice:
+	device_type = 0
 	_property_encoding = dict()
 	_property_params = dict()
 

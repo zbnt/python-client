@@ -33,7 +33,10 @@ class ZbntClient(MessageReceiver):
 	def __init__(self):
 		super().__init__()
 
-		self.on_connected = asyncio.get_running_loop().create_future()
+		loop = asyncio.get_running_loop()
+
+		self.on_connected = loop.create_future()
+		self.on_run_end = loop.create_future()
 		self.received_hello = False
 		self.connected = False
 		self.disconnecting = False
@@ -79,15 +82,17 @@ class ZbntClient(MessageReceiver):
 		self.send_message(Messages.MSG_ID_RUN_START, b"")
 		await self.pending_msg_future
 
+		self.on_run_end = asyncio.get_running_loop().create_future()
+
 	async def stop_run(self):
 		if not self.connected:
 			raise Exception("Not connected to server")
 
-		self.pending_msg = Messages.MSG_ID_RUN_STOP
-		self.pending_msg_future = asyncio.get_running_loop().create_future()
-
 		self.send_message(Messages.MSG_ID_RUN_STOP, b"")
-		await self.pending_msg_future
+		await self.on_run_end
+
+	async def wait_for_run_end(self):
+		await self.on_run_end
 
 	async def load_bitstream(self, name):
 		if not self.connected:
@@ -129,6 +134,13 @@ class ZbntClient(MessageReceiver):
 		self.send_message(Messages.MSG_ID_GET_PROPERTY, payload)
 		return await self.pending_msg_future
 
+	def get_device(self, dev_type, ports=set()):
+		for d in self.devices.values():
+			if d.device_type == dev_type and ports <= set(d.ports):
+				return d
+
+		return None
+
 	def connection_made(self, transport):
 		super().connection_made(transport)
 		self.connected = True
@@ -143,7 +155,7 @@ class ZbntClient(MessageReceiver):
 			self.on_connected.set_result(False)
 
 		if not self.disconnecting:
-			raise ConnectionError(exc)
+			exit(1)
 
 	def data_received(self, data):
 		super().bytes_received(data)
@@ -240,12 +252,14 @@ class ZbntClient(MessageReceiver):
 				self.pending_msg = None
 				self.pending_msg_params = None
 				self.pending_msg_future = None
-		elif msg_id == Messages.MSG_ID_RUN_START or msg_id == Messages.MSG_ID_RUN_STOP:
+		elif msg_id == Messages.MSG_ID_RUN_START:
 			if self.pending_msg == msg_id:
 				self.pending_msg_future.set_result(True)
 				self.pending_msg = None
 				self.pending_msg_params = None
 				self.pending_msg_future = None
+		elif msg_id == Messages.MSG_ID_RUN_STOP:
+			self.on_run_end.set_result(None)
 		elif msg_id == Messages.MSG_ID_SET_PROPERTY or msg_id == Messages.MSG_ID_GET_PROPERTY:
 			if len(msg_payload) < 4:
 				return
@@ -269,4 +283,4 @@ class ZbntClient(MessageReceiver):
 			dev_obj = self.devices.get(dev_id, None)
 
 			if dev_id != None and len(msg_payload) >= 8:
-				dev_id.receive_measurement(msg_payload)
+				dev_obj.receive_measurement(msg_payload)

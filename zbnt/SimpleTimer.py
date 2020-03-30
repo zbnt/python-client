@@ -21,6 +21,8 @@ from .Encoding import *
 from .AxiDevice import *
 
 class SimpleTimer(AxiDevice):
+	device_type = Devices.DEV_SIMPLE_TIMER
+
 	_property_encoding = {
 		Properties.PROP_ENABLE: (encode_bool, decode_bool),
 		Properties.PROP_TIMER_TIME: (None, decode_u64),
