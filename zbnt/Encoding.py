@@ -16,6 +16,8 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import struct
+
 # encode_x : number to bytes
 
 def encode_bool(value):
@@ -44,6 +46,12 @@ def encode_s32(value):
 
 def encode_s64(value):
 	return value.to_bytes(8, byteorder="little", signed=True)
+
+def encode_float(value):
+	return struct.pack("<f", value)
+
+def encode_double(value):
+	return struct.pack("<d", value)
 
 def encode_str(value):
 	return value.encode("UTF-8")
@@ -82,6 +90,12 @@ def decode_s32(value):
 
 def decode_s64(value):
 	return int.from_bytes(value[:8], byteorder="little", signed=True)
+
+def decode_float(value):
+	return struct.unpack("<f", value)[0]
+
+def decode_double(value):
+	return struct.unpack("<d", value)[0]
 
 def decode_str(value):
 	return value.encode("UTF-8")
