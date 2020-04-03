@@ -47,7 +47,7 @@ class FrameDetector(AxiDevice):
 	}
 
 	_regex_comp_instr = re.compile("^(?:nop|(s?[lg]tq?|eq|or|and)(8|16|24|32|40|48|56|64|[fd])(l?)|eof)$")
-	_regex_edit_instr = re.compile("^(?:nop|setr|(set|(?:xn)?or|and|add|s?mul)(8|16|32|64|[fd])(l?)|drop|corrupt)$")
+	_regex_edit_instr = re.compile("^(?:nop|setr|(set|(?:xn|x)?or|and|add|s?mul)(8|16|32|64|[fd])(l?)|drop|corrupt)$")
 
 	_edit_opcode_dict = {
 		"nop":     0b00_00_000_0,
@@ -241,7 +241,7 @@ class FrameDetector(AxiDevice):
 				else:
 					instr_size = int(op_size) // 8
 					instr_param = int(param, 0).to_bytes(instr_size, byteorder="little", signed=bool(opcode & 0b1000))
-			except ValueError:
+			except:
 				raise ValueError("line {0}: Invalid parameter for instruction: '{1}'".format(i, param))
 
 			opcode |= ["eq", "gt", "lt", "gtq", "ltq", "or", "and"].index(base) << 4
@@ -288,14 +288,23 @@ class FrameDetector(AxiDevice):
 			instr_param = b""
 			instr_size = 0
 			opcode = FrameDetector._edit_opcode_dict[base]
+			big_endian = False
+			signed = False
 
-			if len(endianness) == 0 and base != "set":
-				# Big-endian
-				opcode |= 0b10000
+			if len(endianness) == 0:
+				big_endian = True
+
+				if base in ["add", "mul", "smul"]:
+					# Big-endian
+					opcode |= 0b10000
+
+			if (opcode & 0b0100) != 0b0100:
+				# Bitwise operations are always unsigned, for everything else check the signed bit
+				signed = bool(opcode & 0b100000)
 
 			if base == "add" and param[0] == "-":
 				# Set as signed, allows using negative parameters
-				opcode |= 0b100000
+				signed = True
 
 			try:
 				if op_size == "f":
@@ -306,8 +315,8 @@ class FrameDetector(AxiDevice):
 					instr_param = encode_double(float(param))
 				else:
 					instr_size = int(op_size) // 8
-					instr_param = int(param, 0).to_bytes(instr_size, byteorder="little", signed=bool(opcode & 0b100000))
-			except ValueError:
+					instr_param = int(param, 0).to_bytes(instr_size, byteorder="little", signed=signed)
+			except:
 				raise ValueError("line {0}: Invalid parameter for instruction: '{1}'".format(i, param))
 
 			if offset + instr_size > self.max_script_size:
@@ -315,7 +324,7 @@ class FrameDetector(AxiDevice):
 
 			opcode |= int(math.log2(instr_size)) << 6
 
-			if opcode & 0b10000:
+			if big_endian:
 				instr_param = instr_param[::-1]
 
 			res = [ (offset, opcode, instr_param[0]) ]
