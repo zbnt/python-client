@@ -318,13 +318,12 @@ class FrameDetector(AxiDevice):
 			if opcode & 0b10000:
 				instr_param = instr_param[::-1]
 
-			res = []
+			res = [ (offset, opcode, instr_param[0]) ]
 
-			for b in instr_param[:-1]:
-				res.append( (offset, 0, b) )
+			for b in instr_param[1:]:
 				offset += 1
+				res.append( (offset, 0, b) )
 
-			res.append( (offset, opcode, instr_param[-1]) )
 			return res
 
 	def __parse_instr_len(self, i, offset, param):
