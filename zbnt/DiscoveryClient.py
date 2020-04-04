@@ -121,7 +121,7 @@ class DiscoveryClient(MessageReceiver):
 
 		self.on_device_discovered(device)
 
-async def discover_devices(timeout):
+async def discover_devices(timeout, ip4=False):
 	device_list = []
 	address4_set = set()
 	address6_list = []
@@ -129,13 +129,14 @@ async def discover_devices(timeout):
 	# Get broadcast address of every available interface
 
 	for iface in netifaces.interfaces():
-		for addr_family, addr_list in netifaces.ifaddresses(iface).items():
-			if netifaces.address_families[addr_family] == "AF_INET":
-				for addr in addr_list:
-					if "broadcast" in addr:
-						address4_set.add(addr["broadcast"])
-					elif addr["addr"][:8] == "169.254.":
-						address4_set.add("169.254.255.255")
+		if ip4:
+			for addr_family, addr_list in netifaces.ifaddresses(iface).items():
+				if netifaces.address_families[addr_family] == "AF_INET":
+					for addr in addr_list:
+						if "broadcast" in addr:
+							address4_set.add(addr["broadcast"])
+						elif addr["addr"][:8] == "169.254.":
+							address4_set.add("169.254.255.255")
 
 		address6_list.append(
 			socket.getaddrinfo(
