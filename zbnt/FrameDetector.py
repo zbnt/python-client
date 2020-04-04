@@ -113,7 +113,7 @@ class FrameDetector(AxiDevice):
 		ext_data = data[ext_offset:]
 
 		if ext_count % log_width != 0:
-			ext_data = ext_data[:-log_width] + ext_data[-log_width + ext_count % log_width:]
+			ext_data = ext_data[:-log_width] + ext_data[-(ext_count % log_width):]
 
 		self.measurement_handler(self.id, (time, match_dir, match_mask, ext_data))
 
