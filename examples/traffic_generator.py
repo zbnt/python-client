@@ -55,9 +55,12 @@ async def main():
 
 	# Connect to selected device, load a bitstream
 
-	print("\n- Connecting to {0} ({1})".format(req_dev["name"], req_dev["address"]))
+	if not req_dev["local"]:
+		print("\n- Connecting to {0} ({1})".format(req_dev["name"], req_dev["address"]))
+	else:
+		print("\n- Connecting to {0} (PID {1})".format(req_dev["name"], req_dev["pid"]))
 
-	client = await ZbntClient.connect(req_dev["address"], req_dev["port"])
+	client = await ZbntClient.connect(req_dev)
 
 	if client == None:
 		print("Error: Failed to connect to device")
