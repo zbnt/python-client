@@ -81,9 +81,9 @@ class Devices(IntEnum):
 
 	DEV_AXI_DMA = 1
 	DEV_AXI_MDIO = auto()
-	DEV_DMA_BUFFER = auto()
 	DEV_SIMPLE_TIMER = auto()
 	DEV_FRAME_DETECTOR = auto()
 	DEV_STATS_COLLECTOR = auto()
 	DEV_LATENCY_MEASURER = auto()
 	DEV_TRAFFIC_GENERATOR = auto()
+	DEV_PR_CONTROLLER = auto()
