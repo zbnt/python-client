@@ -17,6 +17,7 @@
 """
 
 import asyncio
+import socket
 
 from .AxiDevice import *
 from .AxiMdio import *
@@ -45,13 +46,40 @@ class ZbntClient(MessageReceiver):
 		self.pending_msg = None
 
 	@staticmethod
-	async def connect(addr, port, timeout=5):
+	async def connect(device, timeout=5):
+		if not device["local"]:
+			return await ZbntClient.connectTcp(device["address"], device["port"], timeout)
+		else:
+			return await ZbntClient.connectLocal(device["pid"], timeout)
+
+	@staticmethod
+	async def connectTcp(addr, port, timeout=5):
 		loop = asyncio.get_running_loop()
 
 		_, client = await loop.create_connection(
 			lambda: ZbntClient(),
 			addr,
 			port
+		)
+
+		try:
+			if not await asyncio.wait_for(client.on_connected, timeout=timeout):
+				return None
+		except asyncio.TimeoutError:
+			return None
+
+		return client
+
+	@staticmethod
+	async def connectLocal(pid, timeout=5):
+		loop = asyncio.get_running_loop()
+
+		sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+		sock.connect("\0/tmp/zbnt-local-{:016X}".format(pid).encode())
+
+		_, client = await loop.create_connection(
+			lambda: ZbntClient(),
+			sock=sock
 		)
 
 		try:
