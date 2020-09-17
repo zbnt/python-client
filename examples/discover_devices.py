@@ -25,9 +25,15 @@ async def main():
 
 	for d in devices:
 		print(d["name"])
-		print("    - Address:", d["address"])
 		print("    - Version:", d["versionstr"])
-		print("    - Port:", str(d["port"]))
+		print("    - Local:", d["local"])
+
+		if not d["local"]:
+			print("    - Address:", d["address"])
+			print("    - Port:", str(d["port"]))
+		else:
+			print("    - PID:", str(d["pid"]))
+
 		print("")
 
 asyncio.run(main())

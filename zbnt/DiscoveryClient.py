@@ -78,7 +78,7 @@ class DiscoveryClient(MessageReceiver):
 		pass
 
 	def message_received(self, msg_id, msg_payload):
-		if msg_id != Messages.MSG_ID_DISCOVERY or len(msg_payload) <= 47:
+		if msg_id != Messages.MSG_ID_DISCOVERY or len(msg_payload) <= 54:
 			return
 
 		validator = decode_u64(msg_payload[0:8])
@@ -116,14 +116,20 @@ class DiscoveryClient(MessageReceiver):
 			ip, _ = socket.getnameinfo(self.remote_addr, 0)
 
 		device["address"] = ip
-		device["port"] = decode_u16(msg_payload[45:47])
-		device["name"] = msg_payload[47:].decode("UTF-8")
+		device["local"] = bool(msg_payload[45])
+
+		if not device["local"]:
+			device["port"] = decode_u16(msg_payload[46:48])
+		else:
+			device["pid"] = decode_s64(msg_payload[46:54])
+
+		device["name"] = msg_payload[54:].decode("UTF-8")
 
 		self.on_device_discovered(device)
 
 async def discover_devices(timeout, ip4=False):
 	device_list = []
-	address4_set = set()
+	address4_set = set(["127.0.0.1"])
 	address6_list = []
 
 	# Get broadcast address of every available interface
