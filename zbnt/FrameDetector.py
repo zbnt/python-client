@@ -91,31 +91,26 @@ class FrameDetector(AxiDevice):
 					self.extr_fifo_size = decode_u32(prop_bytes[4:8])
 
 	def receive_measurement(self, data):
-		if len(data) < 14:
+		if len(data) < 15:
 			return
 
 		if self.measurement_handler == None:
 			return
 
 		time = decode_u64(data[0:8])
-		match_dir = data[8] - 65
-		log_width = data[9]
-		ext_count = decode_u16(data[10:12])
-		match_mask = decode_u16(data[12:14])
-		ext_offset = ((log_width + 13) // log_width) * log_width
+		number = decode_u32(data[8:12])
+		match_dir = data[12] - 64
+		log_width = data[13]
+		match_mask = data[14]
+
+		ext_offset = ((log_width + 23) // log_width) * log_width - 8
 
 		if match_dir < 0 or match_dir > 1:
 			return
 
-		if ext_count > len(data) - ext_offset:
-			return
-
 		ext_data = data[ext_offset:]
 
-		if ext_count % log_width != 0:
-			ext_data = ext_data[:-log_width] + ext_data[-(ext_count % log_width):]
-
-		self.measurement_handler(self.id, (time, match_dir, match_mask, ext_data))
+		self.measurement_handler(self.id, (time, number, match_dir, match_mask, ext_data))
 
 	def load_script(self, path):
 		comparator_instr = [(0, 0)] * self.max_script_size
