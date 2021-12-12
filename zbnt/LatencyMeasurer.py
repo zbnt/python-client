@@ -57,11 +57,11 @@ class LatencyMeasurer(AxiDevice):
 
 		time = decode_u64(data[0:8])
 
-		last_ping = decode_u32(data[8:12])
-		last_pong = decode_u32(data[12:16])
+		num_pings = decode_u64(data[8:16])
+		ping_time = decode_u32(data[16:20])
+		pong_time = decode_u32(data[20:24])
 
-		num_ping_pongs = decode_u64(data[16:24])
 		num_lost_pings = decode_u64(data[24:32])
 		num_lost_pongs = decode_u64(data[32:40])
 
-		self.measurement_handler(self.id, (time, last_ping, last_pong, num_ping_pongs, num_lost_pings, num_lost_pongs))
+		self.measurement_handler(self.id, (time, num_pings, ping_time, pong_time, num_lost_pings, num_lost_pongs))
