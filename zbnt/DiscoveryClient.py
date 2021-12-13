@@ -113,7 +113,7 @@ class DiscoveryClient(MessageReceiver):
 		if not self.ip6:
 			ip, _ = self.remote_addr
 		else:
-			ip, _ = socket.getnameinfo(self.remote_addr, 0)
+			ip, _ = socket.getnameinfo(self.remote_addr, socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
 
 		device["address"] = ip
 		device["local"] = bool(msg_payload[45])
