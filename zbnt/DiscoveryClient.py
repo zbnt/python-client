@@ -28,19 +28,20 @@ from .MessageReceiver import *
 class DiscoveryClient(MessageReceiver):
 	MSG_DISCOVERY_PORT = 5466
 
-	def __init__(self, address_list, ip6, on_device_discovered):
+	def __init__(self, address_list, ip6):
 		super().__init__()
 
 		self.ip6 = ip6
 		self.address_list = address_list
-		self.on_device_discovered = on_device_discovered
+		self.devices_found = []
+		self.address_set = set([])
 
 	@staticmethod
-	async def create(addr, ip6, callback):
+	async def create(addr, ip6):
 		loop = asyncio.get_running_loop()
 
 		_, protocol = await loop.create_datagram_endpoint(
-			lambda: DiscoveryClient(addr, ip6, callback),
+			lambda: DiscoveryClient(addr, ip6),
 			remote_addr=None,
 			family=socket.AF_INET6 if ip6 else socket.AF_INET,
 			allow_broadcast=True
@@ -125,12 +126,13 @@ class DiscoveryClient(MessageReceiver):
 
 		device["name"] = msg_payload[54:].decode("UTF-8")
 
-		self.on_device_discovered(device)
+		if ip not in self.address_set:
+			self.address_set.add(ip)
+			self.devices_found.append(device)
 
 async def discover_devices(timeout, ip4=False):
-	device_list = []
 	address4_set = set(["127.0.0.1"])
-	address6_list = []
+	address6_set = set([])
 
 	# Get broadcast address of every available interface
 
@@ -144,7 +146,7 @@ async def discover_devices(timeout, ip4=False):
 						elif addr["addr"][:8] == "169.254.":
 							address4_set.add("169.254.255.255")
 
-		address6_list.append(
+		address6_set.add(
 			socket.getaddrinfo(
 				"ff12::{0}%{1}".format(DiscoveryClient.MSG_DISCOVERY_PORT, iface),
 				5466, socket.AF_INET6, socket.SOCK_DGRAM
@@ -153,15 +155,9 @@ async def discover_devices(timeout, ip4=False):
 
 	# Broadcast DISCOVERY message on every interface
 
-	await DiscoveryClient.create(
-		address4_set, False,
-		lambda dev: device_list.append(dev)
-	)
-
-	await DiscoveryClient.create(
-		address6_list, True,
-		lambda dev: device_list.append(dev)
-	)
+	ip4_client = await DiscoveryClient.create(address4_set, False)
+	ip6_client = await DiscoveryClient.create(address6_set, True)
 
 	await asyncio.sleep(timeout)
-	return device_list
+
+	return ip4_client.devices_found + ip6_client.devices_found
