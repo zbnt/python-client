@@ -71,16 +71,16 @@ class FrameDetector(AxiDevice):
 		HAS_FPU       = 8
 
 	class Frame:
-		def __init__(self, time, number, direction, error, match, payload):
+		def __init__(self, time, number, direction, flags, match, payload):
 			self.time = time
 			self.number = number
 			self.direction = direction
-			self.error = error
+			self.flags = flags
 			self.match = match
 			self.payload = payload
 
 		def __repr__(self):
-			return f"FrameDetector.Frame(number={self.number}, time={self.time}, direction={self.direction}, match={self.match}, error={self.error}, captured_size={len(self.payload)})"
+			return f"FrameDetector.Frame(number={self.number}, time={self.time}, direction={self.direction}, match={self.match}, flags={self.flags}, captured_size={len(self.payload)})"
 
 	def __init__(self, parent, dev_id, initial_props):
 		super().__init__(parent, dev_id, initial_props)
@@ -109,14 +109,14 @@ class FrameDetector(AxiDevice):
 		time = decode_u64(data[0:8])
 		number = decode_u32(data[8:12])
 		direction = data[12] & 1
-		error = data[12] >> 1
+		flags = data[12] >> 1
 		log_width = data[13]
 		match_mask = data[14]
 
 		ext_offset = ((log_width + 23) // log_width) * log_width - 8
 		ext_data = data[ext_offset:]
 
-		return FrameDetector.Frame(time, number, direction, error, match_mask, ext_data)
+		return FrameDetector.Frame(time, number, direction, flags, match_mask, ext_data)
 
 	def load_script(self, path):
 		comparator_instr = [(0, 0)] * self.max_script_size
