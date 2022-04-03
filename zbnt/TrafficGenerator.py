@@ -32,7 +32,7 @@ class TrafficGenerator(AxiDevice):
 		Properties.PROP_BURST_TIME_OFF: (encode_u16, decode_u16),
 		Properties.PROP_LFSR_SEED: (encode_u8, decode_u8),
 		Properties.PROP_FRAME_TEMPLATE: (lambda x: x, lambda x: x),
-		Properties.PROP_FRAME_TEMPLATE_MASK: (lambda x: x, lambda x: x)
+		Properties.PROP_FRAME_SOURCE: (lambda x: x, lambda x: x)
 	}
 
 	def __init__(self, parent, dev_id, initial_props):
@@ -47,13 +47,12 @@ class TrafficGenerator(AxiDevice):
 
 	@staticmethod
 	def load_frame_template(path):
-		template_bytes = b""
-		template_mask = b""
+		frame_template = b""
+		frame_source = b""
 
 		with open(path) as file_handle:
 			i = 1
 			seq = ""
-			mask = 0
 
 			for line in file_handle:
 				line = line.strip().lower()
@@ -63,18 +62,15 @@ class TrafficGenerator(AxiDevice):
 						break
 
 					if line[j] in "abcdef0123456789":
-						if seq == "x":
+						if seq in ["x", "n", "b"]:
 							raise ValueError("line {0}, column {1}: Invalid hexadecimal sequence".format(i, j+1))
 
 						seq += line[j]
 
 						if len(seq) == 2:
-							template_bytes += bytes.fromhex(seq)
+							frame_template += bytes.fromhex(seq)
+							frame_source += encode_u8(0x00)
 							seq = ""
-
-							if len(template_bytes) % 8 == 0:
-								template_mask += encode_u8(mask)
-								mask = 0
 					elif line[j] == "x":
 						seq += line[j]
 
@@ -82,13 +78,19 @@ class TrafficGenerator(AxiDevice):
 							if seq != "xx":
 								raise ValueError("line {0}, column {1}: Invalid random byte sequence".format(i, j+1))
 
+							frame_template += b"\x00"
+							frame_source += encode_u8(0x01)
 							seq = ""
-							mask |= 1 << (len(template_bytes) % 8)
-							template_bytes += b"\x00"
+					elif line[j] in "nb":
+						seq += line[j]
 
-							if len(template_bytes) % 8 == 0:
-								template_mask += encode_u8(mask)
-								mask = 0
+						if len(seq) == 2:
+							if seq not in ["nn", "nb"]:
+								raise ValueError("line {0}, column {1}: Invalid frame number sequence".format(i, j+1))
+
+							frame_template += b"\x00"
+							frame_source += encode_u8(0x02 if seq == "nn" else 0x03)
+							seq = ""
 					elif not line[j].isspace():
 						raise ValueError("line {0}, column {1}: Invalid character".format(i, j+1))
 
@@ -97,7 +99,4 @@ class TrafficGenerator(AxiDevice):
 
 				i += 1
 
-			if len(template_bytes) % 8 != 0:
-				template_mask += encode_u8(mask)
-
-		return (template_bytes, template_mask)
+		return (frame_template, frame_source)

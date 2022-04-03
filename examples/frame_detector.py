@@ -93,16 +93,16 @@ async def main():
 
 	# Configure tgen0, sc0 and the timer
 
-	template_bytes, template_mask = TrafficGenerator.load_frame_template("arp_response.hex")
-	script_bytes = fd0.load_script("arp_spoof_response.zbscr")
+	template, source = TrafficGenerator.load_frame_template("arp_response.hex")
+	script = fd0.load_script("arp_spoof_response.zbscr")
 
-	await fd0.set_property(Properties.PROP_FRAME_SCRIPT, script_bytes, {"index": 0})
+	await fd0.set_property(Properties.PROP_FRAME_SCRIPT, script, {"index": 0})
 	await fd0.set_property(Properties.PROP_ENABLE_SCRIPT, 1)
 	await fd0.set_property(Properties.PROP_ENABLE_LOG, True)
 	await fd0.set_property(Properties.PROP_ENABLE, True)
 
-	await tgen0.set_property(Properties.PROP_FRAME_TEMPLATE, template_bytes)
-	await tgen0.set_property(Properties.PROP_FRAME_TEMPLATE_MASK, template_mask)
+	await tgen0.set_property(Properties.PROP_FRAME_TEMPLATE, template)
+	await tgen0.set_property(Properties.PROP_FRAME_SOURCE, source)
 	await tgen0.set_property(Properties.PROP_FRAME_SIZE, 64)
 	await tgen0.set_property(Properties.PROP_FRAME_GAP, 12500000)
 	await tgen0.set_property(Properties.PROP_ENABLE, True)

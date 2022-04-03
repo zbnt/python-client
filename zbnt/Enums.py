@@ -51,7 +51,7 @@ class Properties(IntEnum):
 	PROP_FRAME_GAP = auto()
 	PROP_FRAME_PADDING = auto()
 	PROP_FRAME_TEMPLATE = auto()
-	PROP_FRAME_TEMPLATE_MASK = auto()
+	PROP_FRAME_SOURCE = auto()
 	PROP_FRAME_SCRIPT = auto()
 	PROP_FRAME_SCRIPT_NAME = auto()
 
