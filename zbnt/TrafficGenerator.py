@@ -61,41 +61,30 @@ class TrafficGenerator(AxiDevice):
 					if line[j] == "#":
 						break
 
-					if line[j] in "abcdef0123456789":
-						if seq in ["x", "n", "b"]:
-							raise ValueError("line {0}, column {1}: Invalid hexadecimal sequence".format(i, j+1))
-
+					if len(seq) != 0:
 						seq += line[j]
 
-						if len(seq) == 2:
+						if seq[0] in "abcdef0123456789" and seq[1] in "abcdef0123456789":
 							frame_template += bytes.fromhex(seq)
 							frame_source += encode_u8(0x00)
-							seq = ""
-					elif line[j] == "x":
-						seq += line[j]
-
-						if len(seq) == 2:
-							if seq != "xx":
-								raise ValueError("line {0}, column {1}: Invalid random byte sequence".format(i, j+1))
-
+						elif seq == "xx":
 							frame_template += b"\x00"
 							frame_source += encode_u8(0x01)
-							seq = ""
-					elif line[j] in "nb":
+						elif seq == "nn":
+							frame_template += b"\x00"
+							frame_source += encode_u8(0x02)
+						elif seq == "nb":
+							frame_template += b"\x00"
+							frame_source += encode_u8(0x03)
+						else:
+							raise ValueError(f"line {i}, column {j+1}: Invalid sequence: {seq.upper()}")
+
+						seq = ""
+					elif not line[j].isspace():
 						seq += line[j]
 
-						if len(seq) == 2:
-							if seq not in ["nn", "nb"]:
-								raise ValueError("line {0}, column {1}: Invalid frame number sequence".format(i, j+1))
-
-							frame_template += b"\x00"
-							frame_source += encode_u8(0x02 if seq == "nn" else 0x03)
-							seq = ""
-					elif not line[j].isspace():
-						raise ValueError("line {0}, column {1}: Invalid character".format(i, j+1))
-
 				if seq != "":
-					raise ValueError("line {0}, column {1}: Incomplete byte sequence".format(i, j+1))
+					raise ValueError(f"line {i}, column {j+1}: Incomplete byte sequence")
 
 				i += 1
 
