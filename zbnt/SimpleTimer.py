@@ -40,4 +40,4 @@ class SimpleTimer(AxiDevice):
 					self.freq = int.from_bytes(prop_bytes[:4], byteorder="little", signed=False)
 
 	def __repr__(self):
-		return "zbnt.{0}(dev_id={1}, freq={2})".format(self.__class__.__name__, self.id, self.freq)
+		return f"SimpleTimer(id={self.id}, freq={self.freq})"

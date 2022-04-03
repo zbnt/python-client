@@ -70,6 +70,18 @@ class FrameDetector(AxiDevice):
 		HAS_CSUM_UNIT = 4
 		HAS_FPU       = 8
 
+	class Frame:
+		def __init__(self, time, number, direction, error, match, payload):
+			self.time = time
+			self.number = number
+			self.direction = direction
+			self.error = error
+			self.match = match
+			self.payload = payload
+
+		def __repr__(self):
+			return f"FrameDetector.Frame(number={self.number}, time={self.time}, direction={self.direction}, match={self.match}, error={self.error}, captured_size={len(self.payload)})"
+
 	def __init__(self, parent, dev_id, initial_props):
 		super().__init__(parent, dev_id, initial_props)
 
@@ -92,25 +104,19 @@ class FrameDetector(AxiDevice):
 
 	def receive_measurement(self, data):
 		if len(data) < 15:
-			return
-
-		if self.measurement_handler == None:
-			return
+			return None
 
 		time = decode_u64(data[0:8])
 		number = decode_u32(data[8:12])
-		match_dir = data[12] - 64
+		direction = data[12] & 1
+		error = data[12] >> 1
 		log_width = data[13]
 		match_mask = data[14]
 
 		ext_offset = ((log_width + 23) // log_width) * log_width - 8
-
-		if match_dir < 0 or match_dir > 1:
-			return
-
 		ext_data = data[ext_offset:]
 
-		self.measurement_handler(self.id, (time, number, match_dir, match_mask, ext_data))
+		return FrameDetector.Frame(time, number, direction, error, match_mask, ext_data)
 
 	def load_script(self, path):
 		comparator_instr = [(0, 0)] * self.max_script_size

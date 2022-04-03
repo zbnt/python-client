@@ -30,15 +30,25 @@ class StatsCollector(AxiDevice):
 		Properties.PROP_OVERFLOW_COUNT: (None, decode_u64)
 	}
 
+	class Statistics:
+		def __init__(self, time, tx_bytes, tx_good, tx_bad, rx_bytes, rx_good, rx_bad):
+			self.time = time
+			self.tx_bytes = tx_bytes
+			self.tx_good = tx_good
+			self.tx_bad = tx_bad
+			self.rx_bytes = rx_bytes
+			self.rx_good = rx_good
+			self.rx_bad = rx_bad
+
+		def __repr__(self):
+			return f"StatsCollector.Statistics(time={self.time}, tx=({self.tx_bytes}, {self.tx_good}, {self.tx_bad}), rx=({self.rx_bytes}, {self.rx_good}, {self.rx_bad}))"
+
 	def __init__(self, parent, dev_id, initial_props):
 		super().__init__(parent, dev_id, initial_props)
 
 	def receive_measurement(self, data):
 		if len(data) < 56:
-			return
-
-		if self.measurement_handler == None:
-			return
+			return None
 
 		time = decode_u64(data[0:8])
 
@@ -50,4 +60,4 @@ class StatsCollector(AxiDevice):
 		rx_good = decode_u64(data[40:48])
 		rx_bad = decode_u64(data[48:56])
 
-		self.measurement_handler(self.id, (time, tx_bytes, tx_good, tx_bad, rx_bytes, rx_good, rx_bad))
+		return StatsCollector.Statistics(time, tx_bytes, tx_good, tx_bad, rx_bytes, rx_good, rx_bad)

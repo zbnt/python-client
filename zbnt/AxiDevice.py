@@ -27,7 +27,6 @@ class AxiDevice:
 		self.id = dev_id
 		self.ports = []
 		self.client = parent
-		self.measurement_handler = None
 		self.valid_properties = list(self._property_encoding)
 
 		for prop_id, prop_bytes in initial_props:
@@ -35,11 +34,10 @@ class AxiDevice:
 				self.ports = list(prop_bytes)
 
 	def __repr__(self):
-		return "zbnt.{0}(dev_id={1}, ports={2})".format(self.__class__.__name__, self.id, str(self.ports))
+		return f"{self.__class__.__name__}(id={self.id}, ports={self.ports})"
 
 	def receive_measurement(self, data):
-		if self.measurement_handler != None:
-			self.measurement_handler(self.id, data)
+		return None
 
 	async def set_property(self, prop_id, value, params=dict()):
 		prop_encoding = self._property_encoding.get(prop_id, None)

@@ -45,15 +45,24 @@ class LatencyMeasurer(AxiDevice):
 		])
 	}
 
+	class Measurement:
+		def __init__(self, time, number, ping, pong, lost_pings, lost_pongs):
+			self.time = time
+			self.number = number
+			self.ping = ping
+			self.pong = pong
+			self.lost_pings = lost_pings
+			self.lost_pongs = lost_pongs
+
+		def __repr__(self):
+			return f"LatencyMeasurer.Measurement(time={self.time}, number={self.number}, latency=({self.ping}, {self.pong}), lost=({self.lost_pings}, {self.lost_pongs}))"
+
 	def __init__(self, parent, dev_id, initial_props):
 		super().__init__(parent, dev_id, initial_props)
 
 	def receive_measurement(self, data):
 		if len(data) < 40:
-			return
-
-		if self.measurement_handler == None:
-			return
+			return None
 
 		time = decode_u64(data[0:8])
 
@@ -64,4 +73,4 @@ class LatencyMeasurer(AxiDevice):
 		num_lost_pings = decode_u64(data[24:32])
 		num_lost_pongs = decode_u64(data[32:40])
 
-		self.measurement_handler(self.id, (time, num_pings, ping_time, pong_time, num_lost_pings, num_lost_pongs))
+		return LatencyMeasurer.Measurement(time, num_pings, ping_time, pong_time, num_lost_pings, num_lost_pongs)

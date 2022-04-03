@@ -42,7 +42,7 @@ class ZbntClient(MessageReceiver):
 		self.connected = False
 		self.disconnecting = False
 		self.devices = dict()
-
+		self.callback = None
 		self.pending_msg = None
 
 	@staticmethod
@@ -93,6 +93,9 @@ class ZbntClient(MessageReceiver):
 	def disconnect(self):
 		self.disconnecting = True
 		self.transport.close()
+
+	def set_callback(self, callback):
+		self.callback = callback
 
 	def send_message(self, msg_id, payload):
 		self.transport.write(MessageReceiver.MSG_MAGIC_IDENTIFIER)
@@ -310,5 +313,8 @@ class ZbntClient(MessageReceiver):
 			dev_id = msg_id & ~Messages.MSG_ID_MEASUREMENT
 			dev_obj = self.devices.get(dev_id, None)
 
-			if dev_id != None and len(msg_payload) >= 8:
-				dev_obj.receive_measurement(msg_payload)
+			if dev_id != None and len(msg_payload) >= 8 and self.callback != None:
+				meas_obj = dev_obj.receive_measurement(msg_payload)
+
+				if meas_obj != None:
+					self.callback(dev_obj, meas_obj)

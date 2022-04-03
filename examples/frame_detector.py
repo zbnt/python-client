@@ -18,16 +18,16 @@
 """
 
 import asyncio
-from zbnt import ZbntClient, TrafficGenerator, Devices, Properties, discover_devices
+from zbnt import ZbntClient, FrameDetector, TrafficGenerator, Devices, Properties, discover_devices
 
 output_file = open("results.csv", "w")
 
-def write_fd_measurement(dev_id, measurement_data):
-	measurement_data = list(measurement_data)
-	measurement_data[-1] = measurement_data[-1].hex()
+def handle_measurement(device, measurement):
+	if isinstance(device, FrameDetector) and device.ports == [2, 3]:
+		measurement.payload = measurement.payload.hex()
 
-	output_file.write(",".join(map(str, measurement_data)))
-	output_file.write("\n")
+		output_file.write(",".join(map(str, measurement.__dict__.values())))
+		output_file.write("\n")
 
 async def main():
 	# Scan for devices, ask the user to select one if multiple devices are found
@@ -85,7 +85,7 @@ async def main():
 
 	# Set function to be called every time the server sends measurement data
 
-	fd0.measurement_handler = write_fd_measurement
+	client.set_callback(handle_measurement)
 
 	# Tell the server to start the run, this will initialize the DMA core
 
