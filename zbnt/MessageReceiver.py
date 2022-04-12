@@ -55,7 +55,6 @@ class MessageReceiver(asyncio.Protocol):
 						self.status = MsgRxStatus.MSG_RX_HEADER
 						self.buffer = b""
 					else:
-						print(f"W: Received incorrect magic bytes: {self.buffer.hex()}")
 						self.buffer = self.buffer[1:]
 			elif self.status == MsgRxStatus.MSG_RX_HEADER:
 				# Header: message_id (2 bytes) + length (2 bytes)
