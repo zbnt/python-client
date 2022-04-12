@@ -70,7 +70,7 @@ class DiscoveryClient(MessageReceiver):
 		super().bytes_received(data)
 
 		self.status = MsgRxStatus.MSG_RX_MAGIC
-		self.buffer = b"\x00\x00\x00\x00"
+		self.buffer = b""
 
 	def error_received(self, err):
 		pass

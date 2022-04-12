@@ -34,7 +34,7 @@ class MessageReceiver(asyncio.Protocol):
 
 	def __init__(self):
 		self.status = MsgRxStatus.MSG_RX_MAGIC
-		self.buffer = b"\x00\x00\x00\x00"
+		self.buffer = b""
 		self.count = 0
 		self.size = 0
 		self.id = 0
@@ -48,11 +48,15 @@ class MessageReceiver(asyncio.Protocol):
 
 			if self.status == MsgRxStatus.MSG_RX_MAGIC:
 				# Magic sequence: \xFFZB\x02
-				self.buffer = self.buffer[1:] + b
+				self.buffer += b
 
-				if self.buffer == MessageReceiver.MSG_MAGIC_IDENTIFIER:
-					self.status = MsgRxStatus.MSG_RX_HEADER
-					self.buffer = b""
+				if len(self.buffer) == len(MessageReceiver.MSG_MAGIC_IDENTIFIER):
+					if self.buffer == MessageReceiver.MSG_MAGIC_IDENTIFIER:
+						self.status = MsgRxStatus.MSG_RX_HEADER
+						self.buffer = b""
+					else:
+						print(f"W: Received incorrect magic bytes: {self.buffer.hex()}")
+						self.buffer = self.buffer[1:]
 			elif self.status == MsgRxStatus.MSG_RX_HEADER:
 				# Header: message_id (2 bytes) + length (2 bytes)
 				self.buffer += b
@@ -68,7 +72,7 @@ class MessageReceiver(asyncio.Protocol):
 					elif self.size == 0:
 						self.message_received(self.id, self.buffer)
 						self.status = MsgRxStatus.MSG_RX_MAGIC
-						self.buffer = b"\x00\x00\x00\x00"
+						self.buffer = b""
 					else:
 						self.status = MsgRxStatus.MSG_RX_DATA
 
@@ -89,14 +93,14 @@ class MessageReceiver(asyncio.Protocol):
 					else:
 						self.message_received(self.id, self.buffer)
 						self.status = MsgRxStatus.MSG_RX_MAGIC
-						self.buffer = b"\x00\x00\x00\x00"
+						self.buffer = b""
 			else:
 				self.buffer += b
 
 				if len(self.buffer) == self.size:
 					self.message_received(self.id, self.buffer)
 					self.status = MsgRxStatus.MSG_RX_MAGIC
-					self.buffer = b"\x00\x00\x00\x00"
+					self.buffer = b""
 
 	def message_received(self, msg_id, msg_payload):
 		pass
