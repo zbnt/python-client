@@ -32,6 +32,7 @@ class PcapWriter:
 		else:
 			self.output = output
 
+		self.clk_period = 8
 		self.if_count = 0
 		self.if_map = dict()
 
@@ -49,7 +50,9 @@ class PcapWriter:
 
 	def register_devices(self, client):
 		for d in client.devices.values():
-			if d.device_type == Devices.DEV_FRAME_DETECTOR:
+			if d.device_type == Devices.DEV_SIMPLE_TIMER:
+				self.clk_period = 1_000_000_000 // d.freq
+			elif d.device_type == Devices.DEV_FRAME_DETECTOR:
 				port_a, port_b = d.ports
 
 				self.if_map[d.id] = self.if_count
@@ -79,7 +82,7 @@ class PcapWriter:
 		self.if_count += 1
 
 	def __write_frame(self, iface_id, time, number, match_flags, frame_flags, frame):
-		time = time.to_bytes(8, "little")
+		time = (self.clk_period * time).to_bytes(8, "little")
 		flen = len(frame).to_bytes(4, "little")
 		padding = b"\x00" * ((4 - len(frame) % 4) % 4)
 		flags = ((match_flags << 8) | (frame_flags >> 1)).to_bytes(4, "little")
